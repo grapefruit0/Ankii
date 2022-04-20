@@ -1,16 +1,19 @@
 #ifndef _ANKI_H
 #define _ANKI_H
 
-#include <stdio.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
-#include <limits.h>
+#include <stdarg.h>
+#include <errno.h>
+
 
 #define	MAXLINE	4096			/* max line length */
+#define SHORT_MAXLINE  100      /* short max line length */
 
-
-char buf[MAXLINE];              /* current line buffer */
-char temp_buf[MAXLINE];         /* temporary line buffer */
+                                /* +1 for terminating null byte */
+char buf[MAXLINE + 1];          /* current line buffer */
+char temp_buf[MAXLINE + 1];     /* temporary line buffer */
 
 
 /* 
@@ -25,33 +28,29 @@ char temp_buf[MAXLINE];         /* temporary line buffer */
 #define  LIGHT_BLUE_COLOR  3
 
 
-int  fputs_wrapper(const char *s, FILE *restrict stream);
-char *strcat_wrapper(char *dest, const char *src);
+/*
+ * file extract_content.c
+ */
+void make_anki_card(FILE *restrict in_stream, FILE *restrict out_stream, const char *word);
 
-
-void	err_sys(const char *, ...) __attribute__((noreturn));
-
-
-void extract_relevant_content(FILE *restrict in_stream, FILE *restrict out_stream);
-
-void handle_part_of_speech(FILE *restrict in_stream);
-void handle_phrase_head(FILE *restrict in_stream);
-void handle_english_explanation(FILE *restrict in_stream);
-void handle_chinese_explanation(FILE *restrict in_stream);
-void handle_example(FILE *restrict in_stream);
-void handle_example_chinese(FILE *restrict in_stream);
-void handle_expanded_example(FILE *restrict in_stream);
-
-void remove_extra_symbols_and_content(void);
-
-void add_html_layout(int is_bold, int is_blue);
-
-
+/*
+ * file shell.c
+ */
 void get_current_date(char *s, int size);
 void get_cambridge_dictionary_translanation(const char *word);
-void make_anki_card(const char *word, FILE *restrict in_stream, FILE *restrict out_stream);
-
 void delete_intermediate_files(const char *word);
+char *modify_input_word(const char *word, char *modified_word);
+
+/*
+ * file func_wrapper.c
+ */
+char *strcat_wrapper(char *dest, const int maxsize, const int va_size, ...);
+int  fputs_wrapper(const char *s, FILE *restrict stream);
+
+/*
+ * file error.c
+ */
+void err_sys(const char *, ...) __attribute__((noreturn));
 
 
 #endif  /* _ANKI_H */

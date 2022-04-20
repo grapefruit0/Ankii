@@ -1,8 +1,8 @@
 #include "ankii.h"
-#include <errno.h>
-#include <stdarg.h>
+
 
 static void	err_doit(int, int, const char *, va_list);
+
 
 /*
  * Fatal error related to a system call.
@@ -26,11 +26,11 @@ err_sys(const char *fmt, ...)
 static void
 err_doit(int errnoflag, int error, const char *fmt, va_list ap)
 {
-	char	buf[LINE_MAX];
+	char	buf[MAXLINE];
 
-	vsnprintf(buf, LINE_MAX-1, fmt, ap);
+	vsnprintf(buf, MAXLINE-1, fmt, ap);
 	if (errnoflag)
-		snprintf(buf+strlen(buf), LINE_MAX-strlen(buf)-1, ": %s",
+		snprintf(buf+strlen(buf), MAXLINE-strlen(buf)-1, ": %s",
 		  strerror(error));
 	strcat(buf, "\n");
 	fflush(stdout);		/* in case stdout and stderr are the same */

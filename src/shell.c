@@ -2,20 +2,6 @@
 
 
 void
-make_anki_card(const char *word, FILE *restrict in_stream, FILE *restrict out_stream)
-{
-    strcpy(buf, "<b>");
-    strcat_wrapper(buf, word);
-    strcat_wrapper(buf, "</b>");
-    strcat_wrapper(buf, " \"");
-    fputs_wrapper(buf, out_stream);
-
-    extract_relevant_content(in_stream, out_stream);
-
-    fputs_wrapper("\"\n", out_stream);
-}
-
-void
 get_cambridge_dictionary_translanation(const char *word)
 {
     /*
@@ -24,17 +10,13 @@ get_cambridge_dictionary_translanation(const char *word)
     delete_intermediate_files(word);
 
     /* 
-     * $ wget https://dictionary.cambridge.org/.../word_xxx > word_xxx_html
+     * $ wget -q https://dictionary.../word_xxx -O word_xxx_html
      *
      * use wget get cambridge dictionary translanation of word
      * and save it in file work_html
      */
-    strcpy(buf, "wget https://dictionary.cambridge.org/dictionary/english-chinese-simplified/");
-    strcat_wrapper(buf, word);
-    strcat_wrapper(buf, " -O ");
-    strcat_wrapper(buf, word);
-    strcat_wrapper(buf, "_html");
-
+    strcpy(buf, "wget -q https://dictionary.cambridge.org/dictionary/english-chinese-simplified/");
+    strcat_wrapper(buf, MAXLINE, 4, word, " -O ", word, "_html");
     system(buf);
 
     /*
@@ -43,11 +25,7 @@ get_cambridge_dictionary_translanation(const char *word)
      * use pandoc to convert word_xxx_html to word_xxx_markdown
      */
     strcpy(buf, "pandoc -f html -t markdown -o ");
-    strcat_wrapper(buf, word);
-    strcat_wrapper(buf, "_md ");
-    strcat_wrapper(buf, word);
-    strcat_wrapper(buf, "_html");
-
+    strcat_wrapper(buf, MAXLINE, 4, word, "_md ", word, "_html");
     system(buf);
 }
 
@@ -73,12 +51,27 @@ void
 delete_intermediate_files(const char *word)
 {
     /*
+     * $ rm -rf word_xxx_html word_xxx_md
+     *
      * delete word_xxx_html and word_xxx_md
      */
-    strcpy(buf, "rm -r ");
-    strcat_wrapper(buf, word);
-    strcat_wrapper(buf, "_html ");
-    strcat_wrapper(buf, word);
-    strcat_wrapper(buf, "_md");
+    strcpy(buf, "rm -rf ");
+    strcat_wrapper(buf, MAXLINE, 4, word, "_html ", word, "_md");
     system(buf);
+}
+
+char *
+modify_input_word(const char *word, char *modified_word)
+{
+    char *temp;
+
+    strcpy(modified_word, word);
+
+    while ((temp = strstr(modified_word, " ")) != NULL)
+       *temp = '-';
+
+    while ((temp = strstr(modified_word, "/")) != NULL)
+       *temp = '-';
+
+    return modified_word;
 }

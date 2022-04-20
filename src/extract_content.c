@@ -1,9 +1,10 @@
 #include "ankii.h"
 
 
-extern char buf[MAXLINE];
-extern char temp_buf[MAXLINE];
+extern char buf[MAXLINE + 1];
+extern char temp_buf[MAXLINE + 1];
 
+int IS_PART_OF_SPEECH = 1;
 
 /*
  * the followings strings identify some key locations in the file
@@ -16,6 +17,8 @@ const char *is_example             = "{.examp .dexamp}";
 const char *is_example_explanation = "{.eg .deg}";
 const char *is_expanded_example    = "{.daccord}";
 
+const char *is_invalid_file        = "{#popular-searches .lp-m_l-25}";
+
 /*
  * some substr that needs to be deleted from the current line buffer
  */
@@ -25,10 +28,10 @@ const int  extra_symbols_size = 6;
 /* 
  * delimiter and newline
  */
-const char *delimiter      = "<font color='#333399'>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</font>\n";
-const char *delimiter_dark = "<font color='#339999'>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</font>\n";
-const char *newline        = "<br>\n";
-const char *newline_2      = "<br><br>\n";
+const char *delimiter       = "<font color='#333399'>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</font>\n";
+const char *delimiter_light = "<font color='#339999'>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</font>\n";
+const char *newline         = "<br>\n";
+const char *newline_2       = "<br><br>\n";
 
 /*
  * html layout
@@ -41,8 +44,26 @@ const char *bold       = "<b>";
 const char *bold_end   = "</b>";
 
 
+
+/*
+ * function declaration
+ */
+void handle_part_of_speech(FILE *restrict in_stream);
+void handle_phrase_head(FILE *restrict in_stream);
+void handle_english_explanation(FILE *restrict in_stream);
+void handle_chinese_explanation(FILE *restrict in_stream);
+void handle_example(FILE *restrict in_stream);
+void handle_example_chinese(FILE *restrict in_stream);
+void handle_expanded_example(FILE *restrict in_stream);
+
+void remove_extra_symbols_and_content(void);
+
+void add_html_layout(int is_bold, int is_blue);
+
+
+
 void
-extract_relevant_content(FILE *restrict in_stream, FILE *restrict out_stream)
+make_anki_card(FILE *restrict in_stream, FILE *restrict out_stream, const char *word)
 {
     char *is_extracted_content_beg_tag = "###";
     char *is_extracted_content_end_tag = "[(Translation of ";
@@ -59,12 +80,35 @@ extract_relevant_content(FILE *restrict in_stream, FILE *restrict out_stream)
      */
 
     while (fgets(buf, MAXLINE, in_stream) != NULL) {
+        /*
+         * ERROR: invalid file
+         * print info and terminate
+         */
+        if (strstr(buf, is_invalid_file) != NULL) {
+            fprintf(stderr, "[-] the card of \"%s\" making failed\n", word);
+            return;
+        }
+
+        /* the translanation begin at part of speech */
         if (strstr(buf, is_extracted_content_beg_tag) != NULL)
             break;
+
+        /* the translanation begin at english explanation */
+        if (strstr(buf, is_english_explanation) != NULL) {
+            IS_PART_OF_SPEECH = 0;
+            break;
+        }
     }
 
+    /* 
+     * output some date at the begin
+     */
+    strcpy(temp_buf, "\"<b>");
+    strcat_wrapper(temp_buf, MAXLINE, 3, word, "</b>\"", " \"");
+    fputs_wrapper(temp_buf, out_stream);
+
     if (ferror(in_stream))
-        err_sys("extract_relevant_content: input error");
+        err_sys("make_anki_card: input error");
     
     do {
         if (strstr(buf, is_extracted_content_end_tag) != NULL)
@@ -82,12 +126,22 @@ extract_relevant_content(FILE *restrict in_stream, FILE *restrict out_stream)
             fputs_wrapper(buf, out_stream);
         } else if (strstr(buf, is_phrase_head) != NULL) {
             fputs_wrapper(newline_2, out_stream);
-            fputs_wrapper(delimiter_dark, out_stream);
+            fputs_wrapper(delimiter_light, out_stream);
             fputs_wrapper(newline, out_stream);
             handle_phrase_head(in_stream);
             fputs_wrapper(buf, out_stream);
         } else if (strstr(buf, is_english_explanation) != NULL) {
-            fputs_wrapper(newline_2, out_stream);
+            if (IS_PART_OF_SPEECH) {
+                fputs_wrapper(newline_2, out_stream);
+            } else {
+                /* the translanation begin at english explanation */
+                if (is_begin == 0)
+                    fputs_wrapper(newline_2, out_stream);
+                else
+                    is_begin = 0;
+                fputs_wrapper(delimiter, out_stream);
+                fputs_wrapper(newline_2, out_stream);
+            }
             handle_english_explanation(in_stream);
             fputs_wrapper(buf, out_stream);
         } else if (strstr(buf, is_chinese_explanation) != NULL) {
@@ -106,7 +160,18 @@ extract_relevant_content(FILE *restrict in_stream, FILE *restrict out_stream)
     } while (fgets(buf, MAXLINE, in_stream) != NULL);
 
     if (ferror(in_stream))
-        err_sys("extract_relevant_content: input error");
+        err_sys("make_anki_card: input error");
+
+    /* 
+     * output some date at the end
+     */
+    fputs_wrapper("\"\n", out_stream);
+
+    /*
+     * success
+     * print info
+     */
+    fprintf(stderr, "[+] the card of \"%s\" was made successfully\n", word);
 }
 
 void
@@ -124,7 +189,7 @@ handle_part_of_speech(FILE *restrict in_stream)
     add_html_layout(IS_BOLD, MID_BLUE_COLOR);
 
     /* add the char '\n' at the end */
-    strcat_wrapper(buf, "\n");
+    strcat_wrapper(buf, MAXLINE, 1, "\n");
 }
 
 void
@@ -151,7 +216,7 @@ handle_phrase_head(FILE *restrict in_stream)
     add_html_layout(IS_BOLD, MID_BLUE_COLOR);
 
     /* add the char '\n' at the end */
-    strcat_wrapper(buf, "\n");
+    strcat_wrapper(buf, MAXLINE, 1, "\n");
 }
 
 void
@@ -178,7 +243,7 @@ handle_english_explanation(FILE *restrict in_stream)
         /* remove the last char '\n' */
         temp_buf[strlen(temp_buf) - 1] = ' ';
 
-        strcat_wrapper(buf, temp_buf);
+        strcat_wrapper(buf, MAXLINE, 1, temp_buf);
     }
 
     if (ferror(in_stream))
@@ -192,7 +257,7 @@ handle_english_explanation(FILE *restrict in_stream)
     add_html_layout(IS_BOLD, DARK_BLUE_COLOR);
 
     /* add the char '\n' at the end */
-    strcat_wrapper(buf, "\n");
+    strcat_wrapper(buf, MAXLINE, 1, "\n");
 }
 
 void
@@ -218,7 +283,7 @@ handle_chinese_explanation(FILE *restrict in_stream)
     add_html_layout(NO_BOLD, DARK_BLUE_COLOR);
 
     /* add the char '\n' at the end */
-    strcat_wrapper(buf, "\n");
+    strcat_wrapper(buf, MAXLINE, 1, "\n");
 }
 
 void
@@ -251,7 +316,7 @@ handle_example(FILE *restrict in_stream)
         /* remove the last char '\n' */
         temp_buf[strlen(temp_buf) - 1] = ' ';
 
-        strcat_wrapper(buf, temp_buf);
+        strcat_wrapper(buf, MAXLINE, 1, temp_buf);
     }
 
     if (ferror(in_stream))
@@ -266,9 +331,7 @@ handle_example(FILE *restrict in_stream)
     buf_mid_substr = strstr(buf, is_example_explanation);
     *(buf_mid_substr - 1) = '\0';
     strcpy(temp_buf, buf_mid_substr);
-    strcat_wrapper(buf, "\n");
-    strcat_wrapper(buf, temp_buf);
-    strcat_wrapper(buf, "\n");
+    strcat_wrapper(buf, MAXLINE, 3, "\n", temp_buf, "\n");
 
     remove_extra_symbols_and_content();
 
@@ -286,18 +349,14 @@ handle_example(FILE *restrict in_stream)
     strcpy(buf, buf_mid_substr + 1);
 
     strcpy(temp_buf_2, temp_buf);
-
-    add_html_layout(NO_BOLD, LIGHT_BLUE_COLOR);
-    
+    add_html_layout(NO_BOLD, LIGHT_BLUE_COLOR); 
     strcpy(temp_buf, temp_buf_2);
 
-    strcat_wrapper(temp_buf, "\n");
-    strcat_wrapper(temp_buf, newline);
-    strcat_wrapper(temp_buf, buf);
+    strcat_wrapper(temp_buf, MAXLINE, 3, "\n", newline, buf);
     strcpy(buf, temp_buf);
 
     /* add the char '\n' at the end */
-    strcat_wrapper(buf, "\n");
+    strcat_wrapper(buf, MAXLINE, 1, "\n");
 }
 
 void
@@ -344,7 +403,7 @@ remove_extra_symbols_and_content(void)
 
             *substr_beg = '\0';
             strcpy(temp_buf, substr_end);
-            strcat_wrapper(buf, temp_buf);
+            strcat_wrapper(buf, MAXLINE, 1, temp_buf);
         }
     }
 
@@ -352,7 +411,7 @@ remove_extra_symbols_and_content(void)
      * appends the " " string to the buf string
      * to prevent "Segmentation fault (core dumped)" in subsequent operations
      */
-    // strcat_wrapper(buf, " ");
+    // strcat_wrapper(buf, MAXLINE, 1, " ");
 
     /*
      * remove extra content { some text ... }
@@ -373,7 +432,7 @@ remove_extra_symbols_and_content(void)
 
         *substr_beg = '\0';
         strcpy(temp_buf, substr_end);
-        strcat_wrapper(buf, temp_buf);
+        strcat_wrapper(buf, MAXLINE, 1, temp_buf);
     }
 
     /*
@@ -384,7 +443,7 @@ remove_extra_symbols_and_content(void)
 
         *substr_beg = '\0';
         strcpy(temp_buf, substr_end);
-        strcat_wrapper(buf, temp_buf);
+        strcat_wrapper(buf, MAXLINE, 1, temp_buf);
     }
 
     /*
@@ -409,8 +468,7 @@ add_html_layout(int is_bold, int is_blue)
     case (IS_BOLD):
         strcpy(temp_buf, buf);
         strcpy(buf, bold);
-        strcat_wrapper(buf, temp_buf);
-        strcat_wrapper(buf, bold_end);
+        strcat_wrapper(buf, MAXLINE, 2, temp_buf, bold_end);
         break;
 
     case (NO_BOLD):
@@ -425,22 +483,19 @@ add_html_layout(int is_bold, int is_blue)
     case (DARK_BLUE_COLOR):
         strcpy(temp_buf, buf);
         strcpy(buf, dark_blue);
-        strcat_wrapper(buf, temp_buf);
-        strcat_wrapper(buf, font_end);
+        strcat_wrapper(buf, MAXLINE, 2, temp_buf, font_end);
         break;
 
     case (MID_BLUE_COLOR):
         strcpy(temp_buf, buf);
         strcpy(buf, mid_blue);
-        strcat_wrapper(buf, temp_buf);
-        strcat_wrapper(buf, font_end);
+        strcat_wrapper(buf, MAXLINE, 2, temp_buf, font_end);
         break;
 
     case (LIGHT_BLUE_COLOR):
         strcpy(temp_buf, buf);
         strcpy(buf, light_blue);
-        strcat_wrapper(buf, temp_buf);
-        strcat_wrapper(buf, font_end);
+        strcat_wrapper(buf, MAXLINE, 2, temp_buf, font_end);
         break;
 
     case (BLANK_COLOR):

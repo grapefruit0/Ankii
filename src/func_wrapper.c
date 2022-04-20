@@ -2,12 +2,21 @@
 
 
 char *
-strcat_wrapper(char *dest, const char *src)
+strcat_wrapper(char *dest, const int maxsize, const int va_size, ...)
 {
-    if (strlen(dest) + strlen(src) >= MAXLINE)
-        err_sys("strcat_wrapper: strcat error");
+    char *src;
+    va_list ap;
 
-    return strcat(dest, src);
+    va_start(ap, va_size);
+    for (int i = 0; i < va_size; ++i) {
+        src = va_arg(ap, char *);
+        if (strlen(dest) + strlen(src) > maxsize)
+            err_sys("strcat_wrapper: strcat error");
+        strcat(dest, src);
+    }
+    va_end(ap);
+
+    return dest;
 }
 
 int
