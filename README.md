@@ -29,3 +29,5 @@ To use Ankii, simply run the command:
         $ ./ankii anki-list
 
 Finally, import file Anki\_20220416\_003130.csv into Anki
+
+Tips: the computer network connection should be normal when using Ankii

@@ -53,10 +53,10 @@ void handle_phrase_head(FILE *restrict in_stream);
 void handle_english_explanation(FILE *restrict in_stream);
 void handle_chinese_explanation(FILE *restrict in_stream);
 void handle_example(FILE *restrict in_stream);
-void handle_example_chinese(FILE *restrict in_stream);
 void handle_expanded_example(FILE *restrict in_stream);
 
 void remove_extra_symbols_and_content(void);
+void replace_double_quotes(void);
 
 void add_html_layout(int is_bold, int is_blue);
 
@@ -79,7 +79,21 @@ make_anki_card(FILE *restrict in_stream, FILE *restrict out_stream, const char *
      *   end: "[(Translation of ..."
      */
 
-    while (fgets(buf, MAXLINE, in_stream) != NULL) {
+    /*
+     * ERROR: invalid file
+     * print info and terminate
+     */
+    if (fgets(buf, MAXLINE, in_stream) == NULL) {
+        fprintf(stderr, "[-] the card of \"%s\" making failed\n", word);
+        return;
+    } else {
+        if (strcmp(buf, "\n") == 0) {
+            fprintf(stderr, "[-] the card of \"%s\" making failed\n", word);
+            return;
+        }
+    }
+
+    do { 
         /*
          * ERROR: invalid file
          * print info and terminate
@@ -98,7 +112,7 @@ make_anki_card(FILE *restrict in_stream, FILE *restrict out_stream, const char *
             IS_PART_OF_SPEECH = 0;
             break;
         }
-    }
+    } while (fgets(buf, MAXLINE, in_stream) != NULL);
 
     /* 
      * output some date at the begin
@@ -182,6 +196,7 @@ handle_part_of_speech(FILE *restrict in_stream)
      */
 
     remove_extra_symbols_and_content();
+    replace_double_quotes();
 
     /*
      * add html layout
@@ -209,6 +224,7 @@ handle_phrase_head(FILE *restrict in_stream)
         err_sys("handle_phrase_head: input error");
 
     remove_extra_symbols_and_content();
+    replace_double_quotes();
 
     /*
      * add html layout
@@ -250,6 +266,7 @@ handle_english_explanation(FILE *restrict in_stream)
         err_sys("handle_english_explanation: input error");
 
     remove_extra_symbols_and_content();
+    replace_double_quotes();
 
     /* 
      * add html layout
@@ -276,6 +293,7 @@ handle_chinese_explanation(FILE *restrict in_stream)
         err_sys("handle_chinese_explanation: input error");
 
     remove_extra_symbols_and_content();
+    replace_double_quotes();
 
     /* 
      * add html layout
@@ -334,6 +352,7 @@ handle_example(FILE *restrict in_stream)
     strcat_wrapper(buf, MAXLINE, 3, "\n", temp_buf, "\n");
 
     remove_extra_symbols_and_content();
+    replace_double_quotes();
 
     /* 
      * split buf into chinese translation saved at buf
@@ -451,6 +470,19 @@ remove_extra_symbols_and_content(void)
      */
     if ((substr_end = strrchr(buf, '\n')) != NULL)
         *substr_end = '\0';
+}
+
+/*
+ * replace double quotes with single quotes in string buf
+ */
+void
+replace_double_quotes(void)
+{
+    char *substr_beg;
+
+    while ((substr_beg = strstr(buf, "\"")) != NULL) {
+        *substr_beg = '\'';
+    }
 }
 
 void

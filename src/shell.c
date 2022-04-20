@@ -17,7 +17,8 @@ get_cambridge_dictionary_translanation(const char *word)
      */
     strcpy(buf, "wget -q https://dictionary.cambridge.org/dictionary/english-chinese-simplified/");
     strcat_wrapper(buf, MAXLINE, 4, word, " -O ", word, "_html");
-    system(buf);
+    if (system(buf) < 0)
+        err_sys("get_cambridge_dictionary_translanation: system error");
 
     /*
      * $ pandoc -f html -t markdown -o word_xxx_md word_xxx_html
@@ -26,7 +27,8 @@ get_cambridge_dictionary_translanation(const char *word)
      */
     strcpy(buf, "pandoc -f html -t markdown -o ");
     strcat_wrapper(buf, MAXLINE, 4, word, "_md ", word, "_html");
-    system(buf);
+    if (system(buf) < 0)
+        err_sys("get_cambridge_dictionary_translanation: system error");
 }
 
 void
