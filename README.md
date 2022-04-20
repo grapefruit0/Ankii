@@ -18,6 +18,8 @@ To build Ankii, simply run the 'make'
 
 ## Usage
 
+Tips: the computer network connection should be normal when using Ankii
+
 First, put the word you want to make the card with write file anki-list by line, such as
 
         $ cat anki-list
@@ -29,5 +31,3 @@ To use Ankii, simply run the command:
         $ ./ankii anki-list
 
 Finally, import file Anki\_20220416\_003130.csv into Anki
-
-Tips: the computer network connection should be normal when using Ankii
