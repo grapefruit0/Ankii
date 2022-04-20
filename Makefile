@@ -16,4 +16,4 @@ error.o : ankii.h
 
 .PHONY : clean
 clean : 
-	rm ${bin_name}
+	rm -rf ${bin_name} ${objects}
