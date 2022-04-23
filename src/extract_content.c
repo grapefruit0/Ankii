@@ -104,8 +104,10 @@ make_anki_card(FILE *restrict in_stream, FILE *restrict out_stream, const char *
         }
 
         /* the translanation begin at part of speech */
-        if (strstr(buf, is_extracted_content_beg_tag) != NULL)
+        if (strstr(buf, is_extracted_content_beg_tag) != NULL) {
+            IS_PART_OF_SPEECH = 1;
             break;
+        }
 
         /* the translanation begin at english explanation */
         if (strstr(buf, is_english_explanation) != NULL) {
