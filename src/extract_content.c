@@ -4,11 +4,17 @@
 extern char buf[MAXLINE + 1];
 extern char temp_buf[MAXLINE + 1];
 
+char word_pos_info[MAXLINE + 1];
+char word_pos_header[MAXLINE + 1];
+char word_pos_grammar[MAXLINE + 1];
+
 int IS_PART_OF_SPEECH = 1;
 
 /*
  * the followings strings identify some key locations in the file
  */
+const char *is_word_pos_header     = "{.pos-header .dpos-h}";
+const char *is_word_pos_grammar    = "{.posgram .dpos-g .hdib .lmr-5}";
 const char *is_part_of_speech      = "### [";
 const char *is_phrase_head         = "{.phrase-head .dphrase_h}";
 const char *is_english_explanation = "{.def .ddef_d .db}";
@@ -48,6 +54,8 @@ const char *bold_end   = "</b>";
 /*
  * function declaration
  */
+void handle_word_pos_header(FILE *restrict in_stream);
+void handle_word_pos_grammar(FILE *restrict in_stream);
 void handle_part_of_speech(FILE *restrict in_stream);
 void handle_phrase_head(FILE *restrict in_stream);
 void handle_english_explanation(FILE *restrict in_stream);
@@ -65,7 +73,7 @@ void add_html_layout(int is_bold, int is_blue);
 void
 make_anki_card(FILE *restrict in_stream, FILE *restrict out_stream, const char *word)
 {
-    char *is_extracted_content_beg_tag = "###";
+    char *is_extracted_content_beg_tag = "{.pos-header .dpos-h}";
     char *is_extracted_content_end_tag = "[(Translation of ";
 
     int  is_begin = 1;
@@ -103,21 +111,14 @@ make_anki_card(FILE *restrict in_stream, FILE *restrict out_stream, const char *
             return;
         }
 
-        /* the translanation begin at part of speech */
-        if (strstr(buf, is_extracted_content_beg_tag) != NULL) {
-            IS_PART_OF_SPEECH = 1;
+        /* the translanation begin at the word pos-header */
+        if (strstr(buf, is_extracted_content_beg_tag) != NULL)
             break;
-        }
-
-        /* the translanation begin at english explanation */
-        if (strstr(buf, is_english_explanation) != NULL) {
-            IS_PART_OF_SPEECH = 0;
-            break;
-        }
     } while (fgets(buf, MAXLINE, in_stream) != NULL);
 
     /* 
-     * output some date at the begin
+     * output some info at the begin of out_stream
+     *     "<b>word_name</b>" "
      */
     strcpy(temp_buf, "\"<b>");
     strcat_wrapper(temp_buf, MAXLINE, 3, word, "</b>\"", " \"");
@@ -130,7 +131,26 @@ make_anki_card(FILE *restrict in_stream, FILE *restrict out_stream, const char *
         if (strstr(buf, is_extracted_content_end_tag) != NULL)
             break;
 
-        if (strstr(buf, is_part_of_speech) != NULL) {
+        /*
+         * handle `word pos header`
+         * save the string of word pos header to word_pos_header
+         */
+        if (strstr(buf, is_word_pos_header) != NULL) {
+            handle_word_pos_header(in_stream);
+        }
+
+        /*
+         * handle `word pos grammar`
+         * save the string of word pos grammar to word_pos_grammar
+         */
+        else if (strstr(buf, is_word_pos_grammar) != NULL) {
+            handle_word_pos_grammar(in_stream);
+        }
+
+        /*
+         * handle `part of speech`
+         */
+        else if (strstr(buf, is_part_of_speech) != NULL) {
             if (is_begin == 0)
                 fputs_wrapper(newline_2, out_stream);
             else
@@ -140,37 +160,88 @@ make_anki_card(FILE *restrict in_stream, FILE *restrict out_stream, const char *
             fputs_wrapper(newline, out_stream);
             handle_part_of_speech(in_stream);
             fputs_wrapper(buf, out_stream);
-        } else if (strstr(buf, is_phrase_head) != NULL) {
+
+            /* set IS_PART_OF_SPEECH */
+            IS_PART_OF_SPEECH = 1;
+        }
+
+        /* 
+         * handle `phrase head`
+         */
+        else if (strstr(buf, is_phrase_head) != NULL) {
             fputs_wrapper(newline_2, out_stream);
             fputs_wrapper(delimiter_light, out_stream);
             fputs_wrapper(newline, out_stream);
             handle_phrase_head(in_stream);
             fputs_wrapper(buf, out_stream);
-        } else if (strstr(buf, is_english_explanation) != NULL) {
-            if (IS_PART_OF_SPEECH) {
-                fputs_wrapper(newline_2, out_stream);
-            } else {
+        }
+
+        /*
+         * handle `english explanation`
+         */
+        else if (strstr(buf, is_english_explanation) != NULL) {
+            if (IS_PART_OF_SPEECH == 0) {
                 /* the translanation begin at english explanation */
                 if (is_begin == 0)
                     fputs_wrapper(newline_2, out_stream);
                 else
                     is_begin = 0;
                 fputs_wrapper(delimiter, out_stream);
+                fputs_wrapper(newline, out_stream);
+
+                strcpy(word_pos_info, word_pos_header);
+                strcat_wrapper(word_pos_info, MAXLINE, 2, " ", word_pos_grammar);
+
+                /* save the string of buf to prevent overwriting */
+                /* add html layout and output word pos header and grammar */
+                strcpy(temp_buf, buf);
+                strcpy(buf, word_pos_info);
+                add_html_layout(IS_BOLD, MID_BLUE_COLOR);
+                strcpy(word_pos_info, buf);
+                strcpy(buf, temp_buf);
+                fputs_wrapper(word_pos_info, out_stream);
+
+                fputs_wrapper(newline_2, out_stream);
+            } else {
                 fputs_wrapper(newline_2, out_stream);
             }
+
             handle_english_explanation(in_stream);
             fputs_wrapper(buf, out_stream);
-        } else if (strstr(buf, is_chinese_explanation) != NULL) {
+
+            /* set IS_PART_OF_SPEECH */
+            IS_PART_OF_SPEECH = 0;
+        }
+
+        /*
+         * handle chinese explanation
+         */
+        else if (strstr(buf, is_chinese_explanation) != NULL) {
             fputs_wrapper(newline, out_stream);
             handle_chinese_explanation(in_stream);
             fputs_wrapper(buf, out_stream);
-        } else if (strstr(buf, is_example) != NULL) {
+        }
+
+        /*
+         * handle example
+         */
+        else if (strstr(buf, is_example) != NULL) {
             fputs_wrapper(newline_2, out_stream);
             handle_example(in_stream);
             fputs_wrapper(buf, out_stream);
-        } else if (strstr(buf, is_expanded_example) != NULL) {
+        }
+
+        /*
+         * handle expanded example
+         */
+        else if (strstr(buf, is_expanded_example) != NULL) {
             handle_expanded_example(in_stream);
-        } else {
+        }
+
+        /*
+         * handle the other line
+         */
+        else {
             strcpy(buf, "");
         }
     } while (fgets(buf, MAXLINE, in_stream) != NULL);
@@ -188,6 +259,66 @@ make_anki_card(FILE *restrict in_stream, FILE *restrict out_stream, const char *
      * print info
      */
     fprintf(stderr, "[+] the card of \"%s\" was made successfully\n", word);
+}
+
+void
+handle_word_pos_header(FILE *restrict in_stream)
+{
+    /*
+     * ::: {.pos-header .dpos-h}
+     * ::: {.di-title}
+     * [[moderate]{.hw .dhw}]{.headword .hdb .tw-bw .dhw .dpos-h_hw}
+     * :::
+     */
+
+    char *is_word_pos_header_end_tag = ":::";
+
+    /* exclude the first line and the second line */
+    /* read the thrid line only */
+    for (int i = 0; i < 2; ++i)
+        fgets(buf, MAXLINE, in_stream);
+
+    if (ferror(in_stream))
+        err_sys("handle_word_pos_header: input error");
+
+    remove_extra_symbols_and_content();
+    replace_double_quotes();
+
+    /* copy the string to word_pos_header */
+    strcpy(word_pos_header, buf);
+}
+
+void
+handle_word_pos_grammar(FILE *restrict in_stream)
+{
+    /*
+     * ::: {.posgram .dpos-g .hdib .lmr-5}
+     * [noun]{.pos .dpos
+     * title="A word that refers to a person, place, idea, event or thing."}
+     * [[\[ [C]{.gc .dgc} \]](/help/codes.html)]{.gram .dgram}
+     * :::
+     */
+
+    /* exclude the first line */
+    /* read the next line only */
+    fgets(buf, MAXLINE, in_stream);
+
+    if (ferror(in_stream))
+        err_sys("handle_word_pos_grammar: input error");
+
+#if  0
+    char *substr;
+    while ((substr = strstr(buf, "(")) != NULL)
+        *substr = '{';
+    while ((substr = strstr(buf, ")")) != NULL)
+        *substr = '}';
+#endif
+
+    remove_extra_symbols_and_content();
+    replace_double_quotes();
+
+    /* copy the string to word_pos_header */
+    strcpy(word_pos_grammar, buf);
 }
 
 void
@@ -436,6 +567,8 @@ remove_extra_symbols_and_content(void)
 
     /*
      * remove extra content { some text ... }
+     *   or
+     * remove extra content { some text ...
      */
     while ((substr_beg = strstr(buf, "{")) != NULL) {
         /* 
