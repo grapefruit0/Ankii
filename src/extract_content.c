@@ -30,6 +30,8 @@ const char *is_invalid_file        = "{#popular-searches .lp-m_l-25}";
  */
 const char *extra_symbols[] = { "### ", "[", "]", "{.eg .deg} ", "*", "\\" };
 const int  extra_symbols_size = 6;
+const char *extra_substrs[] = { " + that (/help/codes.html) " };
+const int  extra_substrs_size = 1;
 
 /* 
  * delimiter and newline
@@ -174,6 +176,9 @@ make_anki_card(FILE *restrict in_stream, FILE *restrict out_stream, const char *
             fputs_wrapper(newline, out_stream);
             handle_phrase_head(in_stream);
             fputs_wrapper(buf, out_stream);
+
+            /* set IS_PART_OF_SPEECH */
+            IS_PART_OF_SPEECH = 1;
         }
 
         /*
@@ -562,8 +567,9 @@ remove_extra_symbols_and_content(void)
     /*
      * appends the " " string to the buf string
      * to prevent "Segmentation fault (core dumped)" in subsequent operations
+     * 
+     * strcat_wrapper(buf, MAXLINE, 1, " ");
      */
-    // strcat_wrapper(buf, MAXLINE, 1, " ");
 
     /*
      * remove extra content { some text ... }
@@ -598,6 +604,19 @@ remove_extra_symbols_and_content(void)
         *substr_beg = '\0';
         strcpy(temp_buf, substr_end);
         strcat_wrapper(buf, MAXLINE, 1, temp_buf);
+    }
+
+    /*
+     * remove extra substrs
+     */
+    for (int i = 0; i < extra_substrs_size; ++i) {
+        while ((substr_beg = strstr(buf, extra_substrs[i])) != NULL) {
+            substr_end = substr_beg + strlen(extra_substrs[i]);
+
+            *substr_beg = '\0';
+            strcpy(temp_buf, substr_end);
+            strcat_wrapper(buf, MAXLINE, 1, temp_buf);
+        }
     }
 
     /*
