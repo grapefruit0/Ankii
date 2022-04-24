@@ -28,9 +28,9 @@ const char *is_invalid_file        = "{#popular-searches .lp-m_l-25}";
 /*
  * some substr that needs to be deleted from the current line buffer
  */
-const char *extra_symbols[] = { "### ", "[", "]", "{.eg .deg} ", "*", "\\" };
-const int  extra_symbols_size = 6;
-const char *extra_substrs[] = { " + that (/help/codes.html) " };
+const char *extra_symbols[] = { "### ", "[[\\[ ", "[", "]", "{.eg .deg} ", "*", "\\" };
+const int  extra_symbols_size = 7;
+const char *extra_substrs[] = { "(/help/codes.html) " };
 const int  extra_substrs_size = 1;
 
 /* 
@@ -304,20 +304,24 @@ handle_word_pos_grammar(FILE *restrict in_stream)
      * :::
      */
 
+    char *is_word_pos_grammar_end_tag = ":::";
+
     /* exclude the first line */
-    /* read the next line only */
-    fgets(buf, MAXLINE, in_stream);
+    strcpy(buf, "");
+
+    while (fgets(temp_buf, MAXLINE, in_stream) != NULL) {
+        /* exclude the last line */
+        if (strstr(temp_buf, is_word_pos_grammar_end_tag) != NULL)
+            break;
+
+        /* remove the last char '\n' */
+        temp_buf[strlen(temp_buf) - 1] = ' ';
+
+        strcat_wrapper(buf, MAXLINE, 1, temp_buf);
+    }
 
     if (ferror(in_stream))
         err_sys("handle_word_pos_grammar: input error");
-
-#if  0
-    char *substr;
-    while ((substr = strstr(buf, "(")) != NULL)
-        *substr = '{';
-    while ((substr = strstr(buf, ")")) != NULL)
-        *substr = '}';
-#endif
 
     remove_extra_symbols_and_content();
     replace_double_quotes();
@@ -350,13 +354,26 @@ handle_phrase_head(FILE *restrict in_stream)
 {
     /*
      * ::: {.phrase-head .dphrase_h}
-     * \* *[**be hard on [sb]{.obj .dobj}**]{.phrase-title .dphrase-title}
+     * \* *[**provisions**]{.phrase-title .dphrase-title} [[[\[ [plural]{.gc
+     * .dgc} \]](/help/codes.html)]{.gram .dgram}]{.phrase-info .dphrase-info}
      * :::
      */
 
+    char *is_phrase_head_end_tag = ":::";
+
     /* exclude the first line */
-    /* read the next line only */
-    fgets(buf, MAXLINE, in_stream);
+    strcpy(buf, "");
+
+    while (fgets(temp_buf, MAXLINE, in_stream) != NULL) {
+        /* exclude the last line */
+        if (strstr(temp_buf, is_phrase_head_end_tag) != NULL)
+            break;
+
+        /* remove the last char '\n' */
+        temp_buf[strlen(temp_buf) - 1] = ' ';
+
+        strcat_wrapper(buf, MAXLINE, 1, temp_buf);
+    }
 
     if (ferror(in_stream))
         err_sys("handle_phrase_head: input error");
@@ -447,11 +464,11 @@ handle_example(FILE *restrict in_stream)
 {
     /*
      * ::: {.examp .dexamp}
-     * [The
-     * {omitting ...}
-     * [English](https://...){.query}.]{.eg
-     * .deg} [这些说明书 ...]
-     * {omitting ...}
+     * [[\[ [+ that]{.gc .dgc} \]](/zhs/help/codes.html)]{.gram .dgram} [From
+     * what she said, the implication was [that]{.b .db} they were
+     * [splitting](https://dictionary.cambridge.org/zhs/...
+     * up.]{.eg .deg} [她的话中暗示他们将要分手。]{.trans .dtrans .dtrans-se
+     * .hdb .break-cj lang="zh-Hans"}
      * :::
      */
 
@@ -459,7 +476,6 @@ handle_example(FILE *restrict in_stream)
     char *buf_mid_substr;
 
     char temp_buf_2[MAXLINE];    /* temporary storage temp_buf */
-
 
     /* exclude the first line */
     strcpy(buf, "");
@@ -550,6 +566,28 @@ remove_extra_symbols_and_content(void)
 {
     char *substr_beg;
     char *substr_end;
+
+    /* 
+     * in "[[\[ omitting ... \]]" substr, 
+     * replace '[' and ']' to '(' and ')' to prevent deletion
+     */
+    char *substr_beg_tag  = "[[\\[";
+    char *substr_end_tag  = "\\]]";
+    char *temp_char;
+
+    if ((substr_beg = strstr(buf, substr_beg_tag)) != NULL) {
+        substr_end = strstr(buf, substr_end_tag);
+
+        temp_char = substr_beg + strlen(substr_beg_tag);
+        while (temp_char != substr_end) {
+            if (*temp_char == '[')
+                *temp_char = '(';
+            if (*temp_char == ']')
+                *temp_char = ')';
+            
+            ++temp_char;
+        }
+    }
 
     /*
      * remove extra symbols
