@@ -8,7 +8,7 @@ char word_pos_info[MAXLINE + 1];
 char word_pos_header[MAXLINE + 1];
 char word_pos_grammar[MAXLINE + 1];
 
-int IS_PART_OF_SPEECH = 1;
+int IS_PART_OF_SPEECH = 0;
 
 /*
  * the followings strings identify some key locations in the file
